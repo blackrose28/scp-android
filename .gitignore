@@ -1,0 +1,12 @@
+# Android / Gradle
+.gradle/
+build/
+local.properties
+*.apk
+*.aab
+# gomobile output
+*.aar
+*-sources.jar
+# IDE
+.idea/
+*.iml
