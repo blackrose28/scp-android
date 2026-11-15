@@ -96,8 +96,18 @@ type Conn struct {
 	c net.Conn
 }
 
+// errUninitialized is returned by methods on zero values. gomobile generates
+// public no-arg constructors, so Kotlin can create these; a Go panic would
+// crash the whole app.
+var errUninitialized = errors.New("object not initialized: obtain it from a scpmobile function")
+
 // Close closes the underlying transport.
-func (c *Conn) Close() error { return c.c.Close() }
+func (c *Conn) Close() error {
+	if c == nil || c.c == nil {
+		return errUninitialized
+	}
+	return c.c.Close()
+}
 
 // DialDirect opens a TCP connection to host:port (routed over the VPN when up).
 // timeoutMs <= 0 uses the default timeout.
@@ -223,8 +233,15 @@ func (s *Shell) notifyClosed(reason string) {
 	s.notifyOne.Do(func() { s.out.Closed(reason) })
 }
 
+func (s *Shell) initialized() bool {
+	return s != nil && s.client != nil && s.session != nil && s.stdin != nil
+}
+
 // Write sends input to the remote shell.
 func (s *Shell) Write(p []byte) error {
+	if !s.initialized() {
+		return errUninitialized
+	}
 	if s.closed.Load() {
 		return errors.New("shell is closed")
 	}
@@ -234,6 +251,9 @@ func (s *Shell) Write(p []byte) error {
 
 // Resize sends a window-change request.
 func (s *Shell) Resize(cols, rows int) error {
+	if !s.initialized() {
+		return errUninitialized
+	}
 	if s.closed.Load() {
 		return errors.New("shell is closed")
 	}
@@ -243,6 +263,9 @@ func (s *Shell) Resize(cols, rows int) error {
 // Close ends the shell and the SSH connection. It is idempotent; the sink is
 // notified exactly once.
 func (s *Shell) Close() error {
+	if !s.initialized() {
+		return errUninitialized
+	}
 	if !s.closed.CompareAndSwap(false, true) {
 		return nil
 	}

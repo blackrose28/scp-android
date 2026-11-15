@@ -74,6 +74,15 @@ GenerateEd25519() (*KeyPair, error) // PrivateOpenSSH, PublicAuthorizedKey
 Fingerprint(authorizedKey []byte) (string, error) // "SHA256:…"
 ```
 
+Binding rules learned from the generated Java:
+
+- Go `int` maps to Java/Kotlin `long`.
+- gomobile emits public no-arg constructors for every exported struct
+  (`new Shell()`, `new Conn()`). Every exported method must handle the zero
+  value by returning an error. A Go panic aborts the whole app process.
+- Kotlin callback implementations (`HostKeyVerifier`, `OutputSink`) must not
+  throw. Catch everything on the Kotlin side.
+
 Callbacks implemented in Kotlin:
 
 ```go
@@ -153,6 +162,8 @@ as the host field.
 
 ## Testing
 
-- Go: `go test ./...` in `go/` (strict TDD; failing test first).
+- Go: `go test -race ./scpmobile/` in `go/` (strict TDD; failing test first).
+- AAR: `go/build-aar.sh [out-dir]` (default `app/libs/`). gomobile/gobind are
+  pinned through the `tool` directive in `go/go.mod`.
 - Kotlin: JUnit unit tests (backup decrypt vs `testdata/` vectors, known_hosts
   store, merge rules); instrumented/Compose UI tests for TOFU and terminal flows.

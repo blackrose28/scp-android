@@ -121,6 +121,36 @@ func TestFingerprintRejectsGarbage(t *testing.T) {
 	}
 }
 
+// ---- zero values (gomobile exposes public no-arg constructors) ----
+
+func TestZeroValueTypesReturnErrorsInsteadOfPanicking(t *testing.T) {
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("zero-value method panicked (would crash the Android app): %v", r)
+		}
+	}()
+	if err := (&Conn{}).Close(); err == nil {
+		t.Error("Conn{}.Close: expected error")
+	}
+	sh := &Shell{}
+	if err := sh.Write([]byte("x")); err == nil {
+		t.Error("Shell{}.Write: expected error")
+	}
+	if err := sh.Resize(80, 24); err == nil {
+		t.Error("Shell{}.Resize: expected error")
+	}
+	if err := sh.Close(); err == nil {
+		t.Error("Shell{}.Close: expected error")
+	}
+	kp := &KeyPair{}
+	if kp.PrivateOpenSSH() != nil || kp.PublicAuthorizedKey() != nil {
+		t.Error("KeyPair{}: expected nil keys")
+	}
+	if _, err := OpenShell(&Conn{}, "u", nil, "a:22", &recordingVerifier{}, newBufferSink(), 80, 24); err == nil {
+		t.Error("OpenShell(Conn{}): expected error")
+	}
+}
+
 // ---- direct dial ----
 
 func TestDialDirectConnects(t *testing.T) {
