@@ -21,3 +21,16 @@ class SpecialKeyTest {
         assertEquals("\u001B[D", String(SpecialKey.Left.bytes))
     }
 }
+
+class TypedBytesTest {
+    @Test fun `every typed chunk is forwarded as utf-8, repeats included`() {
+        assertContentEquals("o".toByteArray(), typedBytes("o", connected = true))
+        assertContentEquals("o".toByteArray(), typedBytes("o", connected = true))
+        assertContentEquals("é€".toByteArray(Charsets.UTF_8), typedBytes("é€", connected = true))
+    }
+
+    @Test fun `nothing is sent when empty or not connected`() {
+        kotlin.test.assertNull(typedBytes("", connected = true))
+        kotlin.test.assertNull(typedBytes("x", connected = false))
+    }
+}

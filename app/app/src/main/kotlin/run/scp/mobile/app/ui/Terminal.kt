@@ -28,3 +28,7 @@ fun terminalSize(widthPx: Float, heightPx: Float, cellWidthPx: Float, cellHeight
         (heightPx / cellHeightPx).toInt().coerceAtLeast(MIN_ROWS),
     )
 }
+
+/** Bytes to send for text the user just typed, or null when there is nothing to send or no live shell. */
+fun typedBytes(text: CharSequence, connected: Boolean): ByteArray? =
+    if (text.isEmpty() || !connected) null else text.toString().toByteArray(Charsets.UTF_8)

@@ -16,6 +16,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -264,16 +266,21 @@ fun TerminalScreen(
             else -> Unit
         }
 
-        // Typed characters are sent immediately; the field itself stays empty.
+        // Typed characters are sent immediately and the edit is reverted, so the field never holds text. The
+        // value-based overload (`value = ""`) dropped repeated characters ("ooo" arrived as nothing).
+        val inputState = rememberTextFieldState()
         BasicTextField(
-            value = "",
-            onValueChange = { if (it.isNotEmpty() && connected) onSend(it.toByteArray(Charsets.UTF_8)) },
+            state = inputState,
             enabled = connected,
-            singleLine = true,
+            lineLimits = TextFieldLineLimits.SingleLine,
+            inputTransformation = {
+                typedBytes(asCharSequence(), connected)?.let(onSend)
+                revertAllChanges()
+            },
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Password, autoCorrectEnabled = false, imeAction = ImeAction.Send,
             ),
-            keyboardActions = KeyboardActions(onSend = { onSend(SpecialKey.Enter.bytes) }),
+            onKeyboardAction = { onSend(SpecialKey.Enter.bytes) },
             modifier = Modifier
                 .alpha(0f)
                 .focusRequester(focus)
