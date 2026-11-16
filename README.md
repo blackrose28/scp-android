@@ -7,7 +7,7 @@ See [docs/design.md](docs/design.md).
 Layout:
 
 - `go/scpmobile/` - Go networking library (Boundary auth/proxy, SSH), bound with gomobile
-- `app/` - Kotlin/Compose Android app
+- `app/` - Kotlin/Compose Android app (see `app/README.md`)
 - `testdata/` - backup test vectors produced by SCP `scp-core`
 
 ## Toolchain
@@ -24,3 +24,9 @@ cd go
 go test -race ./scpmobile/   # Go networking core
 ./build-aar.sh               # -> app/libs/scpmobile.aar (arm64-v8a, minSdk 23)
 ```
+
+Agents: see [AGENTS.md](AGENTS.md). Sibling repos `../supercontrolpanel` and `../ics-openvpn` are expected next to this one.
+
+## Code intelligence
+
+[Ripwire](https://github.com/redhat-et/ripwire) is used for local code navigation and impact analysis (dev tool only). See the "Code intelligence (Ripwire)" section in [AGENTS.md](AGENTS.md) for install and usage, e.g. `ripwire . --for="SSH shell lifecycle" --legend=compact`.
