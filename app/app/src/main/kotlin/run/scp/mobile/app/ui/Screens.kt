@@ -122,9 +122,7 @@ fun ConnectScreen(
             modifier = Modifier.fillMaxWidth(),
         ) { Text("Connect") }
 
-        Text("Device public key", style = MaterialTheme.typography.titleSmall)
-        Text("Add this line to the server's authorized_keys:", style = MaterialTheme.typography.bodySmall)
-        Text(publicKey.ifBlank { "…" }, fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+        PublicKeyCard(publicKey)
     }
 }
 
