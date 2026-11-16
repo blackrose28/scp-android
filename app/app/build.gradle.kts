@@ -13,11 +13,17 @@ android {
         targetSdk = 37
         versionCode = 1
         versionName = "0.1.0"
-        // scpmobile.aar ships libgojni.so for arm64-v8a only.
+        // Release ships arm64-v8a only (the default scpmobile.aar build).
         ndk { abiFilters += "arm64-v8a" }
     }
 
     buildTypes {
+        debug {
+            // Also package x86_64 so debug builds run on x86_64 emulators. This needs an AAR built with
+            // SCP_TARGETS=android/arm64,android/amd64 (see go/build-aar.sh); with an arm64-only AAR the
+            // extra filter is a no-op.
+            ndk { abiFilters += "x86_64" }
+        }
         release {
             isMinifyEnabled = false
         }

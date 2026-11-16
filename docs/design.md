@@ -146,7 +146,10 @@ as the host field.
   alive in the background.
 - Do not exec bundled binaries (W^X on Android 10+). Everything runs in-process.
 - Ship arm64-v8a (App Bundle splits if more ABIs are needed). The gomobile AAR
-  adds roughly 10–20 MB per ABI.
+  adds roughly 10–20 MB per ABI. For development only, the AAR can also be built
+  with x86_64 (`SCP_TARGETS=android/arm64,android/amd64 go/build-aar.sh`) and the
+  debug build type packages it, so debug builds run on x86_64 emulators; release
+  builds stay arm64-only.
 - Secrets: Keystore-backed AES key (or Tink). Do not use the deprecated Jetpack
   `security-crypto` library.
 
@@ -163,7 +166,9 @@ as the host field.
 ## Testing
 
 - Go: `go test -race ./scpmobile/` in `go/` (strict TDD; failing test first).
-- AAR: `go/build-aar.sh [out-dir]` (default `app/libs/`). gomobile/gobind are
-  pinned through the `tool` directive in `go/go.mod`.
+- AAR: `go/build-aar.sh [out-dir]` (default `app/app/libs/`, where the Gradle
+  module reads it; `SCP_TARGETS` selects ABIs, default arm64). gomobile/gobind
+  are pinned through the `tool` directive in `go/go.mod`. `go/test-build-aar.sh`
+  tests the target selection.
 - Kotlin: JUnit unit tests (backup decrypt vs `testdata/` vectors, known_hosts
   store, merge rules); instrumented/Compose UI tests for TOFU and terminal flows.

@@ -28,9 +28,9 @@ Don't assume tool locations or versions; they differ per machine. Discover what 
 Build and test entry points:
 
 - Go library: run its tests with the race detector from `go/`.
-- AAR: rebuild with `go/build-aar.sh` after any Go API change. Confirm the output lands where the app module expects it, and that the script picked a real NDK (not a legacy leftover). It is git-ignored and arm64-only.
+- AAR: rebuild with `go/build-aar.sh` after any Go API change (tests: `go/test-build-aar.sh`). It writes to `app/app/libs/`, where the app module expects it; confirm the script picked a real NDK (not a legacy leftover). It is git-ignored. Default is arm64 only (release); for emulator development use `SCP_TARGETS=android/arm64,android/amd64 go/build-aar.sh`.
 - Kotlin app: use the Gradle wrapper in `app/` for unit tests and the debug APK. Gradle needs a JDK that satisfies the wrapper's requirements, which may differ from the shell default.
-- Running the APK needs an arm64 device; x86_64 emulators cannot load the AAR.
+- Release APKs are arm64 only. The debug APK also contains x86_64 when the AAR was built with it, so x86_64 emulators work for development; an arm64-only AAR needs an arm64 device.
 
 If a command fails because of environment, fix the environment (env vars, script arguments) rather than the repo, and report repo bugs instead of working around them silently. See `app/README.md` for more.
 

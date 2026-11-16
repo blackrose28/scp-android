@@ -13,9 +13,18 @@ cd app
 ./gradlew :app:assembleDebug
 ```
 
-`scpmobile.aar` ships `libgojni.so` for **arm64-v8a only** (`abiFilters` matches), so run on an
-arm64 device; x86_64 emulators won't load it. The AAR is consumed from `app/libs/scpmobile.aar`
-(`scpmobile-sources.jar` alongside it documents the API).
+The AAR is consumed from `app/app/libs/scpmobile.aar` (`scpmobile-sources.jar` alongside it documents
+the API); `go/build-aar.sh` writes there by default. Rebuild it after any Go API change.
+
+ABIs:
+
+- **Release** ships `arm64-v8a` only (default AAR build, `defaultConfig` `abiFilters`). The release APK is
+  arm64 only even if the AAR also contains x86_64.
+- **Debug** also packages `x86_64` (`debug` build type `abiFilters`) so it runs on x86_64 emulators. That needs
+  a dual-ABI AAR: `SCP_TARGETS=android/arm64,android/amd64 go/build-aar.sh`. With an arm64-only AAR the
+  x86_64 filter is a no-op and the app can only run on arm64 devices.
+- The emulator exercises the Go networking and UI, not arm64 code paths; do a final check on an arm64
+  device before releasing.
 
 ## Layout (`app/src/main/kotlin/run/scp/mobile/app`)
 

@@ -22,8 +22,13 @@ Layout:
 ```sh
 cd go
 go test -race ./scpmobile/   # Go networking core
-./build-aar.sh               # -> app/libs/scpmobile.aar (arm64-v8a, minSdk 23)
+./build-aar.sh               # release AAR -> app/app/libs/scpmobile.aar (arm64-v8a only, minSdk 23)
+SCP_TARGETS=android/arm64,android/amd64 ./build-aar.sh   # dev AAR: adds x86_64 for emulators
+./test-build-aar.sh          # tests for build-aar.sh target selection
 ```
+
+Release builds are arm64 only. For development, build the dual-ABI AAR; the debug APK then also runs on
+x86_64 emulators, while the release APK stays arm64 only regardless of which AAR is in `app/app/libs/`.
 
 Agents: see [AGENTS.md](AGENTS.md). Sibling repos `../supercontrolpanel` and `../ics-openvpn` are expected next to this one.
 
