@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Same navy as SuperControlPanel's app icon (src-tauri/icons/app-icon.svg). -->
+    <color name="ic_launcher_background">#FF1F2637</color>
+</resources>
