@@ -57,12 +57,12 @@ The output sink is passed to `OpenShell` so no early output is lost.
 ```go
 // Boundary auth (OIDC)
 StartOidc(controllerURL, authMethodID string) (*OidcPending, error) // AuthURL()
-(*OidcPending).Poll() (*OidcResult, error) // Done(), Token()
+(*OidcPending).Poll() (*OidcResult, error) // Done(), Token(), ExpirationUnixMs()
 
 // Transport
 DialDirect(host string, port int, timeoutMs int) (*Conn, error)
 DialBoundary(controllerURL, token, targetID string) (*BoundarySession, error)
-BoundarySession: Conn(), ExpirationUnixMs(), ConnectionsLeft(), Close()
+BoundarySession: Conn() (*Conn, error), ExpirationUnixMs(), ConnectionsLeft(), Close()
 
 // SSH
 OpenShell(conn *Conn, user string, privateKey []byte, alias string,
@@ -134,6 +134,16 @@ as the host field.
 ## Boundary OIDC
 
 - Browser mode: `StartOidc` → open `AuthURL` in Custom Tabs → `Poll` until token.
+  `StartOidc`/`Poll` speak the same HTTP API as the desktop app
+  (`POST /v1/auth-methods/<id>:authenticate`, commands `start` then `token`).
+  `Poll` treats HTTP 400/404 as "login not finished yet" and any other non-200
+  as an error. `DialBoundary` authorizes the session on a target ID (`ttcp_…`),
+  then runs `api/proxy` over a one-shot in-memory listener (`net.Pipe`), so no
+  loopback port is opened. The session ends when the SSH connection over `Conn`
+  closes (the proxy is cancelled so the worker is told to tear it down) or when
+  `BoundarySession.Close` is called, whichever comes first. The controller URL
+  and token always come from the caller, never from `BOUNDARY_ADDR`/`BOUNDARY_TOKEN`.
+  `Poll` also treats a 2xx reply without a token (e.g. 202) as still pending.
 - Automated mode: hidden `WebView` + `evaluateJavascript` fill script
   (username, password, TOTP), mirroring the desktop
   `boundary_oidc_init_script`.
@@ -158,14 +168,17 @@ as the host field.
 1. **Go core:** `DialDirect`, `OpenShell` with `HostKeyVerifier`,
    `GenerateEd25519`, `Fingerprint`. Tested against an in-process
    `x/crypto/ssh` test server.
-2. **Go Boundary:** `StartOidc`/`Poll`, `DialBoundary` over an in-memory
-   listener. Tested against a dev Boundary (`boundary dev`).
+2. **Go Boundary (done):** `StartOidc`/`Poll`, `DialBoundary` over an in-memory
+   listener. Unit tests use a fake controller; an opt-in integration test runs
+   `DialBoundary` → `OpenShell` against `boundary dev`.
 3. **App MVP:** backup import, server list, TOFU screen, one terminal screen.
 4. Automated OIDC, Git sync, ics-openvpn AIDL status card, foreground service.
 
 ## Testing
 
 - Go: `go test -race ./scpmobile/` in `go/` (strict TDD; failing test first).
+  Boundary integration (needs the `boundary` binary and Docker, uses ports
+  9200-9202): `SCP_BOUNDARY_DEV=1 go test -race -run TestBoundaryDev -v ./scpmobile/`.
 - AAR: `go/build-aar.sh [out-dir]` (default `app/app/libs/`, where the Gradle
   module reads it; `SCP_TARGETS` selects ABIs, default arm64). gomobile/gobind
   are pinned through the `tool` directive in `go/go.mod`. `go/test-build-aar.sh`
