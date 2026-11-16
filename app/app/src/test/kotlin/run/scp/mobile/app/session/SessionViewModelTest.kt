@@ -134,8 +134,49 @@ class SessionViewModelTest {
         vm.connect(target, 80, 24)
         vm.state.await { it is SessionState.Connected }
         c.events.onOutput("hello\r\nworld".toByteArray())
-        val snap = vm.terminal.await { it.lines == listOf("hello", "world") }
-        assertEquals(listOf("hello", "world"), snap.lines)
+        val snap = vm.terminal.await { it.screen.text() == listOf("hello", "world") }
+        assertEquals(listOf("hello", "world"), snap.screen.text())
+    }
+
+    @Test fun `the terminal grid starts at the size passed to connect`() = runBlocking {
+        store.save(TrustedHost("10.0.0.5:22", "ssh-ed25519", "SHA256:fp"))
+        val vm = vm(FakeConnector())
+        vm.connect(target, 100, 30)
+        vm.state.await { it is SessionState.Connected }
+        assertEquals(100, vm.terminal.value.screen.cols)
+        assertEquals(30, vm.terminal.value.screen.rows)
+    }
+
+    @Test fun `resize also resizes the terminal grid`() = runBlocking {
+        store.save(TrustedHost("10.0.0.5:22", "ssh-ed25519", "SHA256:fp"))
+        val vm = vm(FakeConnector())
+        vm.connect(target, 80, 24)
+        vm.state.await { it is SessionState.Connected }
+        vm.resize(120, 40)
+        val snap = vm.terminal.await { it.screen.cols == 120 }
+        assertEquals(40, snap.screen.rows)
+    }
+
+    @Test fun `terminal queries are answered on the shell`() = runBlocking {
+        store.save(TrustedHost("10.0.0.5:22", "ssh-ed25519", "SHA256:fp"))
+        val c = FakeConnector()
+        val vm = vm(c)
+        vm.connect(target, 80, 24)
+        vm.state.await { it is SessionState.Connected }
+        c.events.onOutput("ab\u001B[6n".toByteArray())
+        eventually { c.session.written.isNotEmpty() }
+        assertEquals(listOf("\u001B[1;3R"), c.session.written)
+    }
+
+    @Test fun `mode flags from the program reach the snapshot`() = runBlocking {
+        store.save(TrustedHost("10.0.0.5:22", "ssh-ed25519", "SHA256:fp"))
+        val c = FakeConnector()
+        val vm = vm(c)
+        vm.connect(target, 80, 24)
+        vm.state.await { it is SessionState.Connected }
+        c.events.onOutput("\u001B[?1h\u001B[?2004h".toByteArray())
+        val snap = vm.terminal.await { it.screen.applicationCursorKeys }
+        assertTrue(snap.screen.bracketedPaste)
     }
 
     @Test fun `input and resize are forwarded to the shell`() = runBlocking {
@@ -253,12 +294,12 @@ class SessionViewModelTest {
         vm.connect(target, 80, 24)
         vm.state.await { it is SessionState.Connected }
         c.events.onOutput("old".toByteArray())
-        vm.terminal.await { it.lines == listOf("old") }
+        vm.terminal.await { it.screen.text() == listOf("old") }
         c.events.onClosed("bye")
         vm.state.await { it is SessionState.Ended }
         vm.disconnect()
         vm.connect(target, 80, 24)
         vm.state.await { it is SessionState.Connected }
-        assertEquals(listOf(""), vm.terminal.value.lines)
+        assertEquals(emptyList(), vm.terminal.value.screen.text())
     }
 }

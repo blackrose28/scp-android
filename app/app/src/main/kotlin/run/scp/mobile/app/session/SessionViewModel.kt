@@ -16,7 +16,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import run.scp.mobile.app.secure.BoundaryTokenStore
-import run.scp.mobile.app.terminal.TerminalBuffer
+import run.scp.mobile.app.terminal.ScreenSnapshot
+import run.scp.mobile.app.terminal.TerminalEmulator
 import run.scp.mobile.app.tofu.HostKeyChallenge
 import run.scp.mobile.app.tofu.KnownHostsStore
 import run.scp.mobile.app.tofu.TofuHostKeyDecider
@@ -32,7 +33,8 @@ sealed interface SessionState {
     data class Failed(val target: SshTarget, val message: String) : SessionState
 }
 
-data class TerminalSnapshot(val lines: List<String>, val revision: Long)
+/** What the terminal looks like right now; [revision] changes with every published picture. */
+data class TerminalSnapshot(val screen: ScreenSnapshot, val revision: Long)
 
 /**
  * Owns one SSH shell at a time: connection state, the Boundary OIDC login, the TOFU host-key
@@ -77,9 +79,9 @@ class SessionViewModel(
     val pendingHostKey: StateFlow<HostKeyChallenge?> = _pendingHostKey.asStateFlow()
     private var pendingDecision: CompletableDeferred<Boolean>? = null
 
-    private var buffer = TerminalBuffer()
+    private var emulator = TerminalEmulator(DEFAULT_COLS, DEFAULT_ROWS) // guarded by lock
     private var revision = 0L
-    private val _terminal = MutableStateFlow(TerminalSnapshot(buffer.lines(), 0))
+    private val _terminal = MutableStateFlow(TerminalSnapshot(emulator.snapshot(), 0))
     val terminal: StateFlow<TerminalSnapshot> = _terminal.asStateFlow()
     private val dirty = Channel<Unit>(Channel.CONFLATED)
 
@@ -102,7 +104,10 @@ class SessionViewModel(
             if (s is SessionState.Connecting || s is SessionState.AwaitingLogin || s is SessionState.Connected) return
             a = Attempt(++nextId, target)
             attempt = a
-            buffer = TerminalBuffer()
+            // Programs query the terminal (cursor position, device attributes); answer on this attempt's shell.
+            emulator = TerminalEmulator(cols.coerceAtLeast(1), rows.coerceAtLeast(1)) { reply ->
+                a.ops.trySend { it.write(reply) }
+            }
             _state.value = SessionState.Connecting(target)
         }
         publishTerminal()
@@ -111,7 +116,7 @@ class SessionViewModel(
             override fun onOutput(bytes: ByteArray) {
                 synchronized(lock) {
                     if (attempt !== a || a.finished) return
-                    buffer.append(bytes)
+                    emulator.append(bytes)
                 }
                 dirty.trySend(Unit)
             }
@@ -261,7 +266,20 @@ class SessionViewModel(
 
     fun send(bytes: ByteArray) = enqueue { it.write(bytes) }
 
-    fun resize(cols: Int, rows: Int) = enqueue { it.resize(cols, rows) }
+    fun resize(cols: Int, rows: Int) {
+        if (cols < 1 || rows < 1) return
+        val accepted = synchronized(lock) {
+            val a = attempt
+            if (a == null || a.finished || _state.value !is SessionState.Connected) {
+                false
+            } else {
+                emulator.resize(cols, rows)
+                a.ops.trySend { it.resize(cols, rows) }
+                true
+            }
+        }
+        if (accepted) dirty.trySend(Unit)
+    }
 
     private fun enqueue(op: (ShellSession) -> Unit) {
         synchronized(lock) {
@@ -324,8 +342,8 @@ class SessionViewModel(
     }
 
     private fun publishTerminal() {
-        val lines = synchronized(lock) { buffer.lines() }
-        _terminal.value = TerminalSnapshot(lines, ++revision)
+        val screen = synchronized(lock) { emulator.snapshot() }
+        _terminal.value = TerminalSnapshot(screen, ++revision)
     }
 
     override fun onCleared() {
@@ -333,6 +351,8 @@ class SessionViewModel(
     }
 
     private companion object {
+        const val DEFAULT_COLS = 80
+        const val DEFAULT_ROWS = 24
         const val PUBLISH_INTERVAL_MS = 16L
         const val MAX_POLL_ERRORS = 3
         const val TOKEN_MARGIN_MS = 60_000L

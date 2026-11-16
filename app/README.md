@@ -32,8 +32,17 @@ ABIs:
 - `tofu/` – trust-on-first-use: `FileKnownHostsStore` (keyed by the server's real `host:port`),
   `TofuHostKeyDecider`. Unknown or changed keys need an explicit decision and are persisted only when
   accepted; timeouts and UI failures reject. A changed key is shown as a warning, not auto-accepted.
-- `terminal/TerminalBuffer` – small line-oriented renderer (CR/LF/BS/TAB, cursor left/right, erase in
-  line; other escapes dropped). **Full-screen programs (vim, htop) are not supported yet.**
+- `terminal/` – `TerminalEmulator`, an xterm-style screen emulator in pure Kotlin: fixed cell grid with
+  attributes, 16/256/true colour, scrollback, alternate screen (less, vim, htop, nano, man), scroll regions,
+  cursor addressing, insert/delete, DEC line drawing, wide characters and combining marks, application cursor
+  keys and bracketed paste modes, and the DSR/DA replies programs wait for. `Palette` maps colours to ARGB,
+  `Viewport` is the scroll arithmetic. Not supported: mouse reporting, origin mode, reflow on resize,
+  text selection. Tests replay bytes captured from real `less`/`nano`/`vi`/`htop` (`src/test/resources/terminal`).
+- `ui/TerminalScreen`, `ui/TerminalCanvas` – draws the grid on a `Canvas` at a fixed cell size (the grid
+  size equals what is sent as the PTY window size). Swipe scrolls history; on the alternate screen a swipe
+  sends arrow keys. Extra-key row: Esc, Tab, sticky Ctrl/Alt, arrows, Home/End/PgUp/PgDn, ^C, ^D, symbols,
+  Paste (bracketed when the program asked for it). Hardware keyboards: arrows, F-keys, Ctrl/Alt chords. `A−`/`A+`
+  change the font size; showing the keyboard shrinks the grid and moves lines to scrollback and back.
 - `session/` – `SessionViewModel` owns one shell, the Boundary login, the TOFU prompt and the terminal
   snapshot; shell I/O runs through an ordered per-connection queue off the main thread. `ShellConnector`,
   `BoundaryAuthenticator` and `BoundaryLogin` are the seams that keep this testable without the native

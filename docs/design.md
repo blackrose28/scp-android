@@ -25,7 +25,7 @@ Status: draft (2026-11-16). Android companion to SuperControlPanel (SCP) desktop
 
 ```
 ┌──────────────── Kotlin / Compose app (app/) ──────────────────┐
-│ Server list · Status cards · Terminal (termux terminal-view)  │
+│ Server list · Status cards · Terminal (own VT emulator)       │
 │ OIDC (Custom Tabs / WebView) · Keystore · known_hosts store   │
 └───────┬───────────────────────┬────────────────────┬──────────┘
    AIDL │                 gomobile bind              │ JGit / SAF picker
@@ -37,6 +37,10 @@ Status: draft (2026-11-16). Android companion to SuperControlPanel (SCP) desktop
 ```
 
 - Kotlin owns UI, persistence, secrets, and trust decisions.
+- The terminal is our own pure-Kotlin xterm-style emulator (`terminal/`) drawn on a Compose `Canvas`, not
+  Termux's `terminal-view`: Termux's libraries are only on JitPack (this build forbids extra repositories) and
+  its emulator is coupled to a JNI subprocess session. Scope is "vim, less, htop, nano, tmux render
+  correctly", not vttest-complete.
 - Go owns all network protocols. Kotlin only sees byte streams and callbacks.
 - No Rust in the app. The backup decrypt lives in the Go library (`DecryptBackup`) and is verified against
   test vectors produced by `scp-core` (`testdata/`). It was first planned as a Kotlin port; Go needs no new
