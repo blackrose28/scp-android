@@ -60,6 +60,7 @@ ABIs:
 - `secure/` – `Sealer`/`KeystoreSealer` (AES-GCM under an Android Keystore key) and `SealedFileSecretStore`
   (the imported OIDC password / OTP secret) and `SealedFileBoundaryTokenStore` (Boundary auth tokens), never
   plaintext on disk.
+- `ui/Theme` – `ScpTheme`: dark palette that paints the background (same as the terminal's; `res/values/colors.xml` mirrors it for the window).
 - `ui/` – Server list, Import, Connect (Direct / Boundary toggle), Login, Connecting, TOFU and Terminal screens (Compose).
   `PublicKeyCard` (server list and manual connect) shows the device's `ssh-ed25519` line with Copy and Share buttons
   for pasting into a server's `~/.ssh/authorized_keys`; they stay disabled until the key has loaded.

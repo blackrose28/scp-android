@@ -8,11 +8,10 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -58,6 +57,7 @@ import run.scp.mobile.app.ui.ConnectingScreen
 import run.scp.mobile.app.ui.ImportScreen
 import run.scp.mobile.app.ui.ServerListScreen
 import run.scp.mobile.app.ui.LoginScreen
+import run.scp.mobile.app.ui.ScpTheme
 import run.scp.mobile.app.ui.TerminalScreen
 import run.scp.mobile.app.ui.TofuScreen
 
@@ -66,7 +66,11 @@ private enum class Screen { Servers, Manual, Import }
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        // The app is always dark: force light status/navigation icons instead of following the system's light mode.
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+        )
         val identity = KeystoreDeviceIdentity(applicationContext)
         val knownHosts = FileKnownHostsStore(File(filesDir, "known_hosts"))
         val secretStore = SealedFileSecretStore(File(filesDir, "boundary_secrets.enc"), KeystoreSealer("scp-mobile-secrets-wrap"))
@@ -89,7 +93,7 @@ class MainActivity : ComponentActivity() {
             }
         }
         setContent {
-            MaterialTheme(colorScheme = darkColorScheme()) {
+            ScpTheme {
                 val session: SessionViewModel = viewModel(factory = sessionFactory)
                 val servers: ServersViewModel = viewModel(factory = serversFactory)
                 var publicKey by remember { mutableStateOf("") }

@@ -1,8 +1,8 @@
 package run.scp.mobile.app.ui
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -12,6 +12,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -66,17 +68,18 @@ fun ServerListScreen(
 @Composable
 private fun ServerRowItem(row: ServerRow, onConnect: (SshTarget) -> Unit) {
     val ready = row.target as? ConnectTarget.Ready
-    Column(
-        Modifier.fillMaxWidth()
-            .then(if (ready != null) Modifier.clickable { onConnect(ready.target) } else Modifier)
-            .padding(vertical = 8.dp),
-    ) {
-        Text(row.title, style = MaterialTheme.typography.titleMedium)
-        Text(row.subtitle, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace)
-        (row.target as? ConnectTarget.Unavailable)?.let {
-            Text(it.reason, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+    val colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    val content: @Composable ColumnScope.() -> Unit = {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
+            Text(row.title, style = MaterialTheme.typography.titleMedium)
+            Text(row.subtitle, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace)
+            (row.target as? ConnectTarget.Unavailable)?.let {
+                Text(it.reason, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+            }
         }
     }
+    if (ready != null) Card(onClick = { onConnect(ready.target) }, modifier = Modifier.fillMaxWidth(), colors = colors, content = content)
+    else Card(modifier = Modifier.fillMaxWidth(), colors = colors, content = content)
 }
 
 /** Backup import: pick a file, enter the passphrase, review what will be replaced, then apply. */

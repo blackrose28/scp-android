@@ -1,0 +1,4 @@
+<resources>
+    <!-- Keep in sync with ScpColors.BACKGROUND (ThemeTest enforces it). -->
+    <color name="scp_background">#FF101010</color>
+</resources>
