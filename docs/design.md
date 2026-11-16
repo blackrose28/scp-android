@@ -143,8 +143,8 @@ as the host field.
   phone's own schema; the secrets in a Keystore-sealed file. Importing shows a preview and then replaces
   the whole list; secrets are saved first and rolled back if writing the list fails.
 - A Boundary server needs `authKind == "oidc"` and valid IDs; otherwise it stays in the list as unavailable
-  with a reason (Boundary password login is not supported). `oidcLoginMode: automated` currently falls back
-  to the browser flow. `boundaryListenPort` and `services` are desktop-only and ignored.
+  with a reason (Boundary password login is not supported). `oidcLoginMode: automated` is carried on the route
+  (`automatedLogin`, `oidcUsername`; never the secrets) and selects the hidden-WebView login (see Boundary OIDC). `boundaryListenPort` and `services` are desktop-only and ignored.
 - Merge rule: Git sync wins for shared data; backup supplies secrets.
 - Device-local desktop fields (executable paths, Caddy, MCP) are ignored.
 
@@ -163,9 +163,16 @@ as the host field.
   `BoundarySession.Close` is called, whichever comes first. The controller URL
   and token always come from the caller, never from `BOUNDARY_ADDR`/`BOUNDARY_TOKEN`.
   `Poll` also treats a 2xx reply without a token (e.g. 202) as still pending.
-- Automated mode: hidden `WebView` + `evaluateJavascript` fill script
-  (username, password, TOTP), mirroring the desktop
-  `boundary_oidc_init_script`.
+- Automated mode (implemented): the pending `StartOidc` login is unchanged and still polled; only the screen
+  differs. `loginPlan` picks automated, or the browser with a reason (no username, no stored password). An
+  invisible, window-attached `WebView` loads `AuthURL`; once a second `evaluateJavascript(oidcFillScript(...))`
+  runs the desktop's field-filling logic as a one-shot function (no page timers), with a TOTP computed per call.
+  The script returns the action taken (`password`/`otp`/`next`/``), never a credential. Safeguards: injection
+  only on https pages whose host is the IdP's (auth URL) or the controller's (`isInjectableUrl`); `FillGovernor`
+  stops after 2 password or 2 OTP submissions and hands over to the browser; WebView navigation is https only,
+  mixed content and file/content access are off, cookies are cleared on entry and exit; secrets are read from the
+  sealed store on demand and live only in the composition. Not handled: login forms inside iframes, a different
+  IdP host than the auth URL's, and TOTP clock-skew correction (the desktop's `fetch_time_offset`).
 - Token kept in memory (implemented) and Keystore-encrypted storage (not yet). It is passed to the
   connector per connect and never stored in `SshTarget`/`SessionState`. A cached token is reused unless it is
   within a minute of expiry; any failed Boundary connect drops it. Session status cards
@@ -193,7 +200,7 @@ as the host field.
    listener. Unit tests use a fake controller; an opt-in integration test runs
    `DialBoundary` → `OpenShell` against `boundary dev`.
 3. **App MVP:** backup import, server list, TOFU screen, one terminal screen.
-4. Automated OIDC, Git sync, ics-openvpn AIDL status card, foreground service.
+4. Git sync, ics-openvpn AIDL status card, foreground service.
 
 ## Testing
 

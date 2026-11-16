@@ -7,8 +7,18 @@ sealed interface Route {
     /** TCP straight to host:port (over the VPN). */
     data object Direct : Route
 
-    /** A Boundary session on [targetId] (`ttcp_…`), authenticated by OIDC against [authMethodId] (`amoidc_…`). */
-    data class Boundary(val controllerUrl: String, val authMethodId: String, val targetId: String) : Route
+    /**
+     * A Boundary session on [targetId] (`ttcp_…`), authenticated by OIDC against [authMethodId] (`amoidc_…`).
+     * [automatedLogin] (with [oidcUsername]) asks for the hidden-WebView login; the password and OTP secret are
+     * never part of the route, they are read from the secret store when the login runs.
+     */
+    data class Boundary(
+        val controllerUrl: String,
+        val authMethodId: String,
+        val targetId: String,
+        val automatedLogin: Boolean = false,
+        val oidcUsername: String = "",
+    ) : Route
 }
 
 /**

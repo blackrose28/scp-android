@@ -171,8 +171,17 @@ class BackupParserTest {
         assertIs<ConnectTarget.Unavailable>(ServerEntry("i", "n", "db", 22, "u", "bogus").connectTarget(boundary))
     }
 
-    @Test fun `automated login mode still connects through the browser`() {
-        val t = ServerEntry("i", "n", "db", 22, "u", "ttcp_abc1").connectTarget(boundary.copy(loginMode = "automated"))
-        assertIs<ConnectTarget.Ready>(t)
+    @Test fun `automated login mode is carried on the route without secrets`() {
+        val t = ServerEntry("i", "n", "db", 22, "u", "ttcp_abc1")
+            .connectTarget(boundary.copy(loginMode = "automated", oidcUsername = "alice"))
+        val route = (t as ConnectTarget.Ready).target.route as Route.Boundary
+        assertTrue(route.automatedLogin)
+        assertEquals("alice", route.oidcUsername)
+    }
+
+    @Test fun `browser login mode leaves the route non-automated`() {
+        val t = ServerEntry("i", "n", "db", 22, "u", "ttcp_abc1").connectTarget(boundary.copy(oidcUsername = "alice"))
+        val route = (t as ConnectTarget.Ready).target.route as Route.Boundary
+        assertEquals(false, route.automatedLogin)
     }
 }

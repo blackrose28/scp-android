@@ -147,7 +147,7 @@ fun ConnectingScreen(target: SshTarget, onCancel: () -> Unit) {
  * once automatically and can be reopened. Only http(s) URLs are ever handed to the browser.
  */
 @Composable
-fun LoginScreen(target: SshTarget, authUrl: String, onCancel: () -> Unit) {
+fun LoginScreen(target: SshTarget, authUrl: String, onCancel: () -> Unit, notice: String? = null) {
     val uriHandler = LocalUriHandler.current
     val openable = isOpenableAuthUrl(authUrl)
     var openError by remember { mutableStateOf<String?>(null) }
@@ -171,6 +171,7 @@ fun LoginScreen(target: SshTarget, authUrl: String, onCancel: () -> Unit) {
     ) {
         CircularProgressIndicator()
         Text("Sign in to Boundary in your browser", Modifier.padding(top = 16.dp), style = MaterialTheme.typography.titleMedium)
+        if (!notice.isNullOrBlank()) Text(notice, Modifier.padding(top = 8.dp), color = MaterialTheme.colorScheme.error)
         Text(
             "Waiting for the login to finish, then connecting to ${target.user}@${target.alias}…",
             Modifier.padding(top = 8.dp),

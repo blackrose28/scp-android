@@ -17,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -31,7 +32,14 @@ import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import run.scp.mobile.app.backup.ImportedSecrets
 import run.scp.mobile.app.backup.NativeBackupDecryptor
+import run.scp.mobile.app.login.LoginPlan
+import run.scp.mobile.app.login.isInjectableUrl
+import run.scp.mobile.app.login.loginPlan
+import run.scp.mobile.app.secure.SecretStore
+import run.scp.mobile.app.session.Route
+import run.scp.mobile.app.ui.AutoLoginScreen
 import run.scp.mobile.app.backup.readBounded
 import run.scp.mobile.app.secure.KeystoreSealer
 import run.scp.mobile.app.secure.SealedFileSecretStore
@@ -60,6 +68,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         val identity = KeystoreDeviceIdentity(applicationContext)
         val knownHosts = FileKnownHostsStore(File(filesDir, "known_hosts"))
+        val secretStore = SealedFileSecretStore(File(filesDir, "boundary_secrets.enc"), KeystoreSealer("scp-mobile-secrets-wrap"))
         val sessionFactory = viewModelFactory {
             initializer {
                 SessionViewModel(OpenShellConnector(identity), knownHosts, boundaryAuth = NativeBoundaryAuthenticator())
@@ -70,7 +79,7 @@ class MainActivity : ComponentActivity() {
                 ServersViewModel(
                     NativeBackupDecryptor(),
                     FileServerRepository(File(filesDir, "servers.json")),
-                    SealedFileSecretStore(File(filesDir, "boundary_secrets.enc"), KeystoreSealer("scp-mobile-secrets-wrap")),
+                    secretStore,
                 )
             }
         }
@@ -81,14 +90,14 @@ class MainActivity : ComponentActivity() {
                 var publicKey by remember { mutableStateOf("") }
                 // Key generation/decryption touches the Keystore and native code: keep it off the UI thread.
                 LaunchedEffect(Unit) { publicKey = withContext(Dispatchers.IO) { identity.publicAuthorizedKey() } }
-                Box(Modifier.fillMaxSize()) { AppRoot(session, servers, publicKey) }
+                Box(Modifier.fillMaxSize()) { AppRoot(session, servers, secretStore, publicKey) }
             }
         }
     }
 }
 
 @Composable
-private fun AppRoot(vm: SessionViewModel, servers: ServersViewModel, publicKey: String) {
+private fun AppRoot(vm: SessionViewModel, servers: ServersViewModel, secretStore: SecretStore, publicKey: String) {
     val state by vm.state.collectAsStateWithLifecycle()
     val challenge by vm.pendingHostKey.collectAsStateWithLifecycle()
     val terminal by vm.terminal.collectAsStateWithLifecycle()
@@ -134,7 +143,7 @@ private fun AppRoot(vm: SessionViewModel, servers: ServersViewModel, publicKey: 
                 }
             }
             is SessionState.Connecting -> ConnectingScreen(s.target, onCancel = vm::disconnect)
-            is SessionState.AwaitingLogin -> LoginScreen(s.target, s.authUrl, onCancel = vm::disconnect)
+            is SessionState.AwaitingLogin -> AwaitingLoginRoot(s, secretStore, onCancel = vm::disconnect)
             is SessionState.Connected, is SessionState.Ended -> TerminalScreen(
                 state = s,
                 terminal = terminal,
@@ -143,6 +152,42 @@ private fun AppRoot(vm: SessionViewModel, servers: ServersViewModel, publicKey: 
                 onClose = vm::disconnect,
             )
         }
+    }
+}
+
+/**
+ * Picks the browser or the automated (hidden WebView) login for a pending Boundary login. The credentials are
+ * read from the sealed store here, on a background thread, and live only in this composition.
+ */
+@Composable
+private fun AwaitingLoginRoot(s: SessionState.AwaitingLogin, secretStore: SecretStore, onCancel: () -> Unit) {
+    val route = s.target.route as? Route.Boundary
+    if (route == null || !route.automatedLogin) {
+        LoginScreen(s.target, s.authUrl, onCancel)
+        return
+    }
+    // Set when the user (or the retry cap) hands over to the browser; the same pending login is completed there.
+    var browserNotice by remember(s.authUrl) { mutableStateOf<String?>(null) }
+    browserNotice?.let {
+        LoginScreen(s.target, s.authUrl, onCancel, notice = it)
+        return
+    }
+    val secrets by produceState<ImportedSecrets?>(null, s.authUrl) {
+        value = withContext(Dispatchers.IO) { secretStore.load() }
+    }
+    val loaded = secrets
+    if (loaded == null) {
+        ConnectingScreen(s.target, onCancel)
+        return
+    }
+    val plan = loginPlan(route, loaded)
+    when {
+        plan is LoginPlan.Automated && isInjectableUrl(s.authUrl, s.authUrl, route.controllerUrl) ->
+            AutoLoginScreen(s.target, route, s.authUrl, plan, onCancel, onUseBrowser = { browserNotice = it })
+        plan is LoginPlan.Automated ->
+            LoginScreen(s.target, s.authUrl, onCancel, notice = "Automated login needs an https sign-in page; using the browser.")
+        plan is LoginPlan.BrowserFallback -> LoginScreen(s.target, s.authUrl, onCancel, notice = plan.reason)
+        else -> LoginScreen(s.target, s.authUrl, onCancel)
     }
 }
 

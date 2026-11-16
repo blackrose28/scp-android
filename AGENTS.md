@@ -45,7 +45,7 @@ If a command fails because of environment, fix the environment (env vars, script
 
 ## Status
 
-Done: Go slice 1 (direct dial, shell, keys), Go Boundary (`StartOidc`/`Poll`/`DialBoundary`, verified against `boundary dev`), app MVP (TOFU, connect, line-oriented terminal), Boundary in the app (browser OIDC login screen, Boundary connect route), and backup import + server list (Go `DecryptBackup`, Kotlin parser, app-private server store, Keystore-sealed OIDC secrets, import and server-list screens). Boundary and import are JVM/Go-tested only: not yet run on a device or against a live controller. Next: Boundary token persistence and expiry/`ConnectionsLeft` status, automated OIDC (uses the imported secrets), Git sync, foreground service.
+Done: Go slice 1 (direct dial, shell, keys), Go Boundary (`StartOidc`/`Poll`/`DialBoundary`, verified against `boundary dev`), app MVP (TOFU, connect, line-oriented terminal), Boundary in the app (browser OIDC login screen, Boundary connect route), and backup import + server list (Go `DecryptBackup`, Kotlin parser, app-private server store, Keystore-sealed OIDC secrets, import and server-list screens). Automated Boundary OIDC (hidden WebView, uses the imported secrets) is implemented. Import, restart persistence, wrong passphrase, TOFU and automated Boundary login to the SSH host-key prompt were exercised on an x86_64 emulator over the VPN; a full Boundary shell session and an arm64 device are still untested. Next: Boundary token persistence and expiry/`ConnectionsLeft` status, Git sync, foreground service.
 
 ## Code intelligence (Ripwire)
 

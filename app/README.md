@@ -56,8 +56,8 @@ ABIs:
 
 Servers screen → *Import backup* → pick the `.scpbak` file from the desktop app → passphrase → preview →
 *Replace servers*. Tapping a server connects with the right route. Boundary servers use the controller and
-auth method from the backup; only OIDC auth is supported. The OIDC secrets are stored encrypted but not used
-yet (automated login is not implemented). Test vectors live in `testdata/` (see its README).
+auth method from the backup; only OIDC auth is supported. The OIDC password and OTP secret are stored
+encrypted and used by the automated login (below). Test vectors live in `testdata/` (see its README).
 
 ### Boundary route
 
@@ -67,4 +67,15 @@ URL, OIDC auth method ID (`amoidc_…`) and target ID (`ttcp_…`) by hand, plus
 login finishes, then dials the target. The browser flow needs no deep link: the IdP calls back to the
 controller and the app only polls. Tokens are kept in memory only (not yet Keystore-persisted), reused while
 more than a minute from expiry, and dropped after any failed Boundary connect so the retry logs in again.
-Login times out after 5 minutes. Automated (hidden WebView) OIDC is not implemented.
+Login times out after 5 minutes.
+
+**Automated login** (`oidcLoginMode: automated` in the backup, like the desktop app): the IdP page loads in an
+invisible `WebView` (`login/`, `ui/AutoLoginScreen`) and a fill script ported from the desktop
+`boundary_oidc_init_script` types the username, password and a fresh TOTP (SHA-1, 6 digits, 30 s, from the OTP
+secret) once a second; the app keeps polling the controller as in the browser flow. Credentials are typed only into
+https pages on the IdP or controller host, at most 2 password and 2 OTP submissions are made (a rejected login must
+not be retried forever), the `WebView` cookies are cleared on entry and exit, and "Use browser instead" (or the retry
+cap) hands the same pending login to the browser. Without a stored password or username, or with a non-https
+sign-in page, the browser is used and the screen says why. Limitations: the IdP form must be in the top-level page
+(not an iframe) and on the IdP's host; unlike the desktop, TOTP uses the phone clock without an HTTP-`Date` skew
+correction. Verified on an x86_64 emulator against the live controller over the VPN (up to the SSH host-key prompt).

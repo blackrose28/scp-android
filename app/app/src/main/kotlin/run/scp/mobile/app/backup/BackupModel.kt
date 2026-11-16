@@ -59,5 +59,8 @@ fun ServerEntry.connectTarget(boundary: BoundarySettings?): ConnectTarget {
     }
     val route = boundaryRoute(boundary.controllerUrl, boundary.authMethodId, targetId)
         ?: return ConnectTarget.Unavailable("Boundary settings or target ID are invalid")
-    return ConnectTarget.Ready(SshTarget(host, sshPort, sshUser, route))
+    val automated = boundary.loginMode == "automated"
+    return ConnectTarget.Ready(
+        SshTarget(host, sshPort, sshUser, route.copy(automatedLogin = automated, oidcUsername = if (automated) boundary.oidcUsername else "")),
+    )
 }
