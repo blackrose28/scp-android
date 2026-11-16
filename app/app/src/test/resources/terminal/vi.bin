@@ -1,0 +1,21 @@
+[?1049h[22;0;0t[>4;2m[?1h=[?2004h[1;24r[?12h[?12l[22;2t[22;1t[27m[23m[29m[m[H[2J[?25l[24;1HE325: ATTENTION
+Found a swap file by the name ".sample.txt.swp"
+[10Cowned by: chuonglv   dated: Mon Nov 16 19:34:42 2026
+[9Cfile name: sample.txt
+[10Cmodified: no
+[9Cuser name: chuonglv   host name: chuonglvUbuntu
+[8Cprocess ID: 1427635 (STILL RUNNING)
+[9C[not usable on this computer]
+While opening file "sample.txt"
+[13Cdated: Mon Nov 16 19:34:07 2026
+
+(1) Another program may be editing the same file.  If this is the case,
+    be careful not to end up with two different instances of the same
+    file when making changes.  Quit, or continue with caution.
+(2) An edit session for this file crashed.
+    If this is the case, use ":recover" or "vim -r sample.txt"
+    to recover the changes (see ":help recovery").
+    If you did this already, delete the swap file ".sample.txt.swp"
+    to avoid this message.
+
+"sample.txt"[23;1H"sample.txt" 79 lines, 2282 bytes[24;1H[K[24;1HPress ENTER or type command to continue[?25h[27m[23m[29m[m[?25l[1;1Hline 1: the quick brown fox[1;28H[K[2;1Hline 2: the quick brown fox[2;28H[K[3;1Hline 3: the quick brown fox[3;28H[K[4;1Hline 4: the quick brown fox[4;28H[K[5;1Hline 5: the quick brown fox[5;28H[K[6;1Hline 6: the quick brown fox[6;28H[K[7;1Hline 7: the quick brown fox[7;28H[K[8;1Hline 8: the quick brown fox[8;28H[K[9;1Hline 9: the quick brown fox[9;28H[K[10;1Hline 10: the quick brown fox[10;29H[K[11;1Hline 11: the quick brown fox[11;29H[K[12;1Hline 12: the quick brown fox[12;29H[K[13;1Hline 13: the quick brown fox[13;29H[K[14;1Hline 14: the quick brown fox[14;29H[K[15;1Hline 15: the quick brown fox[15;29H[K[16;1Hline 16: the quick brown fox[16;29H[K[17;1Hline 17: the quick brown fox[17;29H[K[18;1Hline 18: the quick brown fox[18;29H[K[19;1Hline 19: the quick brown fox[19;29H[K[20;1Hline 20: the quick brown fox[20;29H[K[21;1Hline 21: the quick brown fox[21;29H[K[22;1Hline 22: the quick brown fox[22;29H[K[23;1Hline 23: the quick brown fox[23;29H[K[24;1H[K[1;1H[?25h[?25lline 57: the quick brown fox[2;6H58: the quick brown fox[3;6H59: the quick brown fox[4;6H60: the quick brown fox[5;6H61: the quick brown fox[6;7H2: the quick brown fox[7;6H63: the quick brown fox[8;6H64: the quick brown fox[9;6H65: the quick brown fox[10;6H66[11;6H67[12;6H68[13;6H69[14;6H70[15;6H71[16;6H72[17;6H73[18;6H74[19;6H75[20;6H76[21;6H77[22;6H78[23;6H79[?25h[?4m
