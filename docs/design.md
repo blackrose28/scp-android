@@ -133,7 +133,9 @@ as the host field.
 
 ## Boundary OIDC
 
-- Browser mode: `StartOidc` → open `AuthURL` in Custom Tabs → `Poll` until token.
+- Browser mode: `StartOidc` → open `AuthURL` in the system browser (`ACTION_VIEW`, http/https only;
+  Custom Tabs would need the `androidx.browser` dependency and add nothing here, since the IdP calls back
+  to the controller and the app only polls) → `Poll` every 2 s until a token, giving up after 5 min.
   `StartOidc`/`Poll` speak the same HTTP API as the desktop app
   (`POST /v1/auth-methods/<id>:authenticate`, commands `start` then `token`).
   `Poll` treats HTTP 400/404 as "login not finished yet" and any other non-200
@@ -147,8 +149,10 @@ as the host field.
 - Automated mode: hidden `WebView` + `evaluateJavascript` fill script
   (username, password, TOTP), mirroring the desktop
   `boundary_oidc_init_script`.
-- Token kept in memory and Keystore-encrypted storage. Session status cards
-  show `Expiration` and `ConnectionsLeft`, and the app re-authorizes before expiry.
+- Token kept in memory (implemented) and Keystore-encrypted storage (not yet). It is passed to the
+  connector per connect and never stored in `SshTarget`/`SessionState`. A cached token is reused unless it is
+  within a minute of expiry; any failed Boundary connect drops it. Session status cards
+  show `Expiration` and `ConnectionsLeft`, and the app re-authorizes before expiry (not yet implemented).
 
 ## Android platform notes
 

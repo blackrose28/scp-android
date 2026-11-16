@@ -45,7 +45,7 @@ If a command fails because of environment, fix the environment (env vars, script
 
 ## Status
 
-Done: Go slice 1 (direct dial, shell, keys), Go Boundary (`StartOidc`/`Poll`/`DialBoundary`, verified against `boundary dev`), and app MVP (TOFU, connect, line-oriented terminal). Next: wire Boundary into the app (OIDC screen, Boundary connect route), backup import, server list, automated OIDC, Git sync, foreground service.
+Done: Go slice 1 (direct dial, shell, keys), Go Boundary (`StartOidc`/`Poll`/`DialBoundary`, verified against `boundary dev`), app MVP (TOFU, connect, line-oriented terminal), and Boundary in the app (browser OIDC login screen, Boundary connect route with manually entered controller/auth method/target; JVM-tested, not yet run on a device against a live controller). Next: server list, backup import, token persistence and expiry/`ConnectionsLeft` status, automated OIDC, Git sync, foreground service.
 
 ## Code intelligence (Ripwire)
 

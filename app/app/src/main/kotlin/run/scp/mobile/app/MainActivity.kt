@@ -25,10 +25,12 @@ import kotlinx.coroutines.withContext
 import run.scp.mobile.app.session.SessionState
 import run.scp.mobile.app.session.SessionViewModel
 import run.scp.mobile.app.ssh.KeystoreDeviceIdentity
+import run.scp.mobile.app.ssh.NativeBoundaryAuthenticator
 import run.scp.mobile.app.ssh.OpenShellConnector
 import run.scp.mobile.app.tofu.FileKnownHostsStore
 import run.scp.mobile.app.ui.ConnectScreen
 import run.scp.mobile.app.ui.ConnectingScreen
+import run.scp.mobile.app.ui.LoginScreen
 import run.scp.mobile.app.ui.TerminalScreen
 import run.scp.mobile.app.ui.TofuScreen
 
@@ -39,7 +41,9 @@ class MainActivity : ComponentActivity() {
         val identity = KeystoreDeviceIdentity(applicationContext)
         val knownHosts = FileKnownHostsStore(File(filesDir, "known_hosts"))
         val factory = viewModelFactory {
-            initializer { SessionViewModel(OpenShellConnector(identity), knownHosts) }
+            initializer {
+                SessionViewModel(OpenShellConnector(identity), knownHosts, boundaryAuth = NativeBoundaryAuthenticator())
+            }
         }
         setContent {
             MaterialTheme(colorScheme = darkColorScheme()) {
@@ -61,7 +65,11 @@ private fun AppRoot(vm: SessionViewModel, publicKey: String) {
 
     val pending = challenge
     when {
-        pending != null -> TofuScreen(pending, onDecision = vm::resolveHostKey)
+        pending != null -> TofuScreen(
+            pending,
+            route = (state as? SessionState.Connecting)?.target?.route,
+            onDecision = vm::resolveHostKey,
+        )
         else -> when (val s = state) {
             SessionState.Idle -> ConnectScreen(publicKey, error = null, onConnect = { vm.connect(it, 80, 24) })
             is SessionState.Failed -> ConnectScreen(publicKey, error = s.message, onConnect = {
@@ -69,6 +77,7 @@ private fun AppRoot(vm: SessionViewModel, publicKey: String) {
                 vm.connect(it, 80, 24)
             })
             is SessionState.Connecting -> ConnectingScreen(s.target, onCancel = vm::disconnect)
+            is SessionState.AwaitingLogin -> LoginScreen(s.target, s.authUrl, onCancel = vm::disconnect)
             is SessionState.Connected, is SessionState.Ended -> TerminalScreen(
                 state = s,
                 terminal = terminal,

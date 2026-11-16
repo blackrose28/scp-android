@@ -22,7 +22,7 @@ import run.scp.mobile.app.tofu.HostKeyChallenge
 import run.scp.mobile.app.tofu.KnownHostsStore
 import run.scp.mobile.app.tofu.TrustedHost
 
-private class FakeSession : ShellSession {
+internal class FakeSession : ShellSession {
     val written = CopyOnWriteArrayList<String>()
     val resizes = CopyOnWriteArrayList<Pair<Int, Int>>()
     @Volatile var closed = 0
@@ -31,7 +31,7 @@ private class FakeSession : ShellSession {
     override fun close() { closed++ }
 }
 
-private class FakeConnector(
+internal class FakeConnector(
     private val keyType: String = "ssh-ed25519",
     private val fingerprint: String = "SHA256:fp",
     private val failWith: Throwable? = null,
@@ -39,11 +39,16 @@ private class FakeConnector(
     val session = FakeSession()
     lateinit var events: ShellEvents
     var openedWith: Triple<SshTarget, Int, Int>? = null
+    @Volatile var openedToken: BoundaryToken? = null
+    @Volatile var openCount = 0
 
     override suspend fun open(
         target: SshTarget, cols: Int, rows: Int, hostKeys: HostKeyDecider, events: ShellEvents,
+        boundaryToken: BoundaryToken?,
     ): ShellSession {
         openedWith = Triple(target, cols, rows)
+        openedToken = boundaryToken
+        openCount++
         this.events = events
         failWith?.let { throw it }
         if (!hostKeys.decide(target.alias, keyType, fingerprint)) error("host key rejected")
@@ -51,7 +56,7 @@ private class FakeConnector(
     }
 }
 
-private class MemStore : KnownHostsStore {
+internal class MemStore : KnownHostsStore {
     val map = mutableMapOf<String, TrustedHost>()
     override fun find(alias: String) = map[alias]
     override fun save(host: TrustedHost) { map[host.alias] = host }
@@ -219,7 +224,7 @@ class SessionViewModelTest {
         store.save(TrustedHost("10.0.0.5:22", "ssh-ed25519", "SHA256:fp"))
         val c = object : ShellConnector {
             val s = FakeSession()
-            override suspend fun open(t: SshTarget, cols: Int, rows: Int, hostKeys: HostKeyDecider, events: ShellEvents): ShellSession {
+            override suspend fun open(t: SshTarget, cols: Int, rows: Int, hostKeys: HostKeyDecider, events: ShellEvents, boundaryToken: BoundaryToken?): ShellSession {
                 events.onClosed("dropped")
                 return s
             }
