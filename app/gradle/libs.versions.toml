@@ -6,6 +6,7 @@ activityCompose = "1.13.0"
 lifecycle = "2.11.0"
 coroutines = "1.11.0"
 junit = "4.13.2"
+orgJson = "20250107"
 
 [libraries]
 androidx-compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
@@ -18,6 +19,8 @@ androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-ru
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
 junit = { module = "junit:junit", version.ref = "junit" }
+# org.json is only stubbed in android.jar; JVM unit tests need the real implementation.
+org-json = { module = "org.json:json", version.ref = "orgJson" }
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }
 
 [plugins]

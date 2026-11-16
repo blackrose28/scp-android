@@ -10,3 +10,5 @@ local.properties
 # IDE
 .idea/
 *.iml
+testdata/vecgen/target/
+testdata/vecgen/Cargo.lock

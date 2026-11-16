@@ -67,6 +67,7 @@ fun ConnectScreen(
     publicKey: String,
     error: String?,
     onConnect: (SshTarget) -> Unit,
+    onBack: (() -> Unit)? = null,
 ) {
     var host by remember { mutableStateOf("") }
     var port by remember { mutableStateOf("22") }
@@ -84,6 +85,7 @@ fun ConnectScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text("Connect", style = MaterialTheme.typography.headlineMedium)
+        if (onBack != null) TextButton(onClick = onBack) { Text("← Servers") }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterChip(selected = !viaBoundary, onClick = { viaBoundary = false }, label = { Text("Direct") })
             FilterChip(selected = viaBoundary, onClick = { viaBoundary = true }, label = { Text("Boundary") })

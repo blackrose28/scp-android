@@ -1,0 +1,9 @@
+[package]
+name = "vecgen"
+version = "0.0.0"
+edition = "2021"
+[dependencies]
+scp-core = { path = "../../../SuperControlPanel/crates/scp-core" }
+serde_json = "1"
+tempfile = "3"
+[workspace]

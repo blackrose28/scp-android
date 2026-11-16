@@ -6,7 +6,7 @@ See [docs/design.md](docs/design.md).
 
 Layout:
 
-- `go/scpmobile/` - Go networking library (Boundary auth/proxy, SSH), bound with gomobile
+- `go/scpmobile/` - Go networking library (Boundary auth/proxy, SSH, backup decrypt), bound with gomobile
 - `app/` - Kotlin/Compose Android app (see `app/README.md`)
 - `testdata/` - backup test vectors produced by SCP `scp-core`
 
@@ -30,7 +30,7 @@ SCP_TARGETS=android/arm64,android/amd64 ./build-aar.sh   # dev AAR: adds x86_64 
 Release builds are arm64 only. For development, build the dual-ABI AAR; the debug APK then also runs on
 x86_64 emulators, while the release APK stays arm64 only regardless of which AAR is in `app/app/libs/`.
 
-Agents: see [AGENTS.md](AGENTS.md). Sibling repos `../supercontrolpanel` and `../ics-openvpn` are expected next to this one.
+Agents: see [AGENTS.md](AGENTS.md). Sibling repos `../SuperControlPanel` and `../ics-openvpn` are expected next to this one.
 
 ## Code intelligence
 

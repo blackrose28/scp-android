@@ -6,7 +6,7 @@ Android companion to SuperControlPanel: SSH terminal to SCP servers (direct dial
 
 Related repos are always checked out as sibling folders of this one (`../`):
 
-- `../supercontrolpanel`: the desktop app and source of truth for `servers.json`/`config.json` formats, Boundary OIDC behavior (`boundary_oidc_init_script`), and the encrypted backup format (`crates/scp-core/src/backup/crypto.rs`). Read it; do not modify it from here.
+- `../SuperControlPanel`: the desktop app and source of truth for `servers.json`/`config.json` formats, Boundary OIDC behavior (`boundary_oidc_init_script`), and the encrypted backup format (`crates/scp-core/src/backup/crypto.rs`). Read it; do not modify it from here.
 - `../ics-openvpn`: the OpenVPN fork that supplies the VPN, controlled through its AIDL remote API (`IOpenVPNAPIService`). OpenVPN is never embedded in this app.
 
 If a sibling is missing, say so instead of guessing its contents.
@@ -15,7 +15,7 @@ If a sibling is missing, say so instead of guessing its contents.
 
 - `go/scpmobile/`: Go networking library (SSH, later Boundary), bound with gomobile.
 - `app/`: Gradle/Kotlin/Compose app consuming the `scpmobile` AAR built from `go/`; see `app/README.md`.
-- `testdata/`: backup test vectors produced by SCP `scp-core`.
+- `testdata/`: backup test vectors produced by SCP `scp-core` (`testdata/vecgen` is the dev-only Rust generator; the app itself has no Rust).
 
 ## Workflow
 
@@ -45,7 +45,7 @@ If a command fails because of environment, fix the environment (env vars, script
 
 ## Status
 
-Done: Go slice 1 (direct dial, shell, keys), Go Boundary (`StartOidc`/`Poll`/`DialBoundary`, verified against `boundary dev`), app MVP (TOFU, connect, line-oriented terminal), and Boundary in the app (browser OIDC login screen, Boundary connect route with manually entered controller/auth method/target; JVM-tested, not yet run on a device against a live controller). Next: server list, backup import, token persistence and expiry/`ConnectionsLeft` status, automated OIDC, Git sync, foreground service.
+Done: Go slice 1 (direct dial, shell, keys), Go Boundary (`StartOidc`/`Poll`/`DialBoundary`, verified against `boundary dev`), app MVP (TOFU, connect, line-oriented terminal), Boundary in the app (browser OIDC login screen, Boundary connect route), and backup import + server list (Go `DecryptBackup`, Kotlin parser, app-private server store, Keystore-sealed OIDC secrets, import and server-list screens). Boundary and import are JVM/Go-tested only: not yet run on a device or against a live controller. Next: Boundary token persistence and expiry/`ConnectionsLeft` status, automated OIDC (uses the imported secrets), Git sync, foreground service.
 
 ## Code intelligence (Ripwire)
 

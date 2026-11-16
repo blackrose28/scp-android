@@ -38,8 +38,11 @@ Status: draft (2026-11-16). Android companion to SuperControlPanel (SCP) desktop
 
 - Kotlin owns UI, persistence, secrets, and trust decisions.
 - Go owns all network protocols. Kotlin only sees byte streams and callbacks.
-- No Rust in the app. The backup decrypt is ported to Kotlin and verified against
-  test vectors produced by `scp-core` (`testdata/`).
+- No Rust in the app. The backup decrypt lives in the Go library (`DecryptBackup`) and is verified against
+  test vectors produced by `scp-core` (`testdata/`). It was first planned as a Kotlin port; Go needs no new
+  dependency (`golang.org/x/crypto/argon2` is already in the module), is covered by `go test`, and avoids
+  shipping Bouncy Castle, whose `org.bouncycastle` package can clash with the trimmed copy in Android's boot classpath. Kotlin
+  only parses the decrypted JSON.
 
 ### Why Boundary uses an in-memory listener
 
@@ -68,6 +71,9 @@ BoundarySession: Conn() (*Conn, error), ExpirationUnixMs(), ConnectionsLeft(), C
 OpenShell(conn *Conn, user string, privateKey []byte, alias string,
           hk HostKeyVerifier, out OutputSink, cols, rows int) (*Shell, error)
 Shell: Write([]byte), Resize(cols, rows), Close()
+
+// Backup
+DecryptBackup(data []byte, passphrase string) ([]byte, error) // plaintext JSON payload
 
 // Keys
 GenerateEd25519() (*KeyPair, error) // PrivateOpenSSH, PublicAuthorizedKey
@@ -123,11 +129,22 @@ as the host field.
 - **Git sync:** read-only JGit pull of `app-config/servers.json` and
   `app-config/config.json` (Boundary controller URL, OIDC auth method ID).
   Credentials (deploy token or SSH key) stored via Keystore.
-- **Backup import:** SAF file picker + passphrase. Format v1:
-  Argon2id (`argon2id-19`) + AES-256-GCM, header checked for
-  `version == 1`, `kdf == "argon2id-19"`, `cipher == "aes-256-gcm"`
-  (see SCP `crates/scp-core/src/backup/crypto.rs`). Supplies servers plus
-  secrets (OIDC username/password/OTP secret) into Keystore.
+- **Backup import:** SAF file picker (`OpenDocument`, `*/*`, read capped at 32 MiB) + passphrase.
+  Format v1 (SCP `crates/scp-core/src/backup/crypto.rs`): `SCPBAK01` + u32 LE header length + JSON header
+  (salt/nonce are JSON number arrays) + AES-256-GCM, with the exact header bytes as AAD and the key from
+  Argon2id v1.3 (`argon2id-19`). `DecryptBackup` mirrors the desktop checks: size, magic, header cap (1024),
+  `version == 1`, `kdf`, `cipher`, passphrase 1-4096 bytes, and KDF cost bounds (8-64 MiB, 1-3 passes,
+  1 lane) **before** running Argon2, because the header is only authenticated afterwards. The payload is the
+  desktop `Archive` (schema 1). Kotlin keeps only: servers (`id, name, host, sshPort, sshUser`, Boundary
+  target ID), the shared Boundary settings (`addr`, `authMethodId`, `authKind`, `oidcLoginMode`,
+  `oidcUsername`) and the two Boundary OIDC secrets. The raw `config.json` is never stored (it can hold
+  legacy plaintext passwords); OpenVPN credentials, per-server SSH passwords and `boundary_app_token` are
+  dropped (the phone authenticates with its device key). Servers are stored in an app-private file in the
+  phone's own schema; the secrets in a Keystore-sealed file. Importing shows a preview and then replaces
+  the whole list; secrets are saved first and rolled back if writing the list fails.
+- A Boundary server needs `authKind == "oidc"` and valid IDs; otherwise it stays in the list as unavailable
+  with a reason (Boundary password login is not supported). `oidcLoginMode: automated` currently falls back
+  to the browser flow. `boundaryListenPort` and `services` are desktop-only and ignored.
 - Merge rule: Git sync wins for shared data; backup supplies secrets.
 - Device-local desktop fields (executable paths, Caddy, MCP) are ignored.
 
@@ -187,5 +204,6 @@ as the host field.
   module reads it; `SCP_TARGETS` selects ABIs, default arm64). gomobile/gobind
   are pinned through the `tool` directive in `go/go.mod`. `go/test-build-aar.sh`
   tests the target selection.
-- Kotlin: JUnit unit tests (backup decrypt vs `testdata/` vectors, known_hosts
-  store, merge rules); instrumented/Compose UI tests for TOFU and terminal flows.
+- Go: backup decrypt vs the `testdata/` vectors plus hostile-header cases (`go test -race`).
+- Kotlin: JUnit unit tests (backup payload parser vs `testdata/backup-v1.plain.json`, server store,
+  secret store, import flow, known_hosts store, merge rules); instrumented/Compose UI tests for TOFU and terminal flows.
