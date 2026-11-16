@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import run.scp.mobile.app.secure.BoundaryTokenStore
 import run.scp.mobile.app.terminal.TerminalBuffer
 import run.scp.mobile.app.tofu.HostKeyChallenge
 import run.scp.mobile.app.tofu.KnownHostsStore
@@ -38,10 +39,12 @@ data class TerminalSnapshot(val lines: List<String>, val revision: Long)
  * prompt, and the rendered terminal. Shell writes/resizes/close go through an ordered
  * per-connection queue on [ioDispatcher] so a stalled network never blocks the UI thread.
  *
- * Boundary tokens are kept in memory only, keyed by controller + auth method, and handed to the
- * connector per connect; they are never part of [SessionState]. A token that is expired (or about
- * to be) is not reused, and any failed Boundary connect discards the cached token so the retry
- * logs in again (a stale token cannot be told apart from other failures).
+ * Boundary tokens are cached in memory and, when a [tokenStore] is given, in encrypted storage so they
+ * survive a restart. They are keyed by controller + auth method and handed to the connector per connect;
+ * they are never part of [SessionState]. A token that is expired (or about to be) is not reused, and any
+ * failed Boundary connect discards the cached token so the retry logs in again (a stale token cannot be
+ * told apart from other failures). A store that cannot save or remove never blocks a connection: the token
+ * then lives in memory only. The store is only touched from the worker coroutine on [ioDispatcher].
  */
 class SessionViewModel(
     private val connector: ShellConnector,
@@ -52,6 +55,7 @@ class SessionViewModel(
     private val loginPollIntervalMs: Long = 2_000,
     private val loginTimeoutMs: Long = 300_000,
     private val clock: () -> Long = System::currentTimeMillis,
+    private val tokenStore: BoundaryTokenStore? = null,
 ) : ViewModel() {
 
     private class Attempt(val id: Long, val target: SshTarget) {
@@ -132,7 +136,7 @@ class SessionViewModel(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                if (route is Route.Boundary) synchronized(lock) { tokens.remove(tokenKey(route)) }
+                if (route is Route.Boundary) forgetToken(tokenKey(route))
                 fail(a, e)
                 return@launch
             }
@@ -175,13 +179,30 @@ class SessionViewModel(
 
     private fun usable(t: BoundaryToken) = t.expirationMs == 0L || t.expirationMs - clock() > TOKEN_MARGIN_MS
 
+    private fun forgetToken(key: String) {
+        synchronized(lock) { tokens.remove(key) }
+        runCatching { tokenStore?.remove(key) }
+    }
+
+    /** The memory cache first, then the store (an unusable stored token is deleted); null when neither has one. */
+    private fun cachedToken(key: String): BoundaryToken? {
+        synchronized(lock) { tokens[key] }?.let { if (usable(it)) return it }
+        val stored = tokenStore?.let { runCatching { it.load(key) }.getOrNull() } ?: return null
+        if (!usable(stored)) {
+            forgetToken(key)
+            return null
+        }
+        synchronized(lock) { tokens[key] = stored }
+        return stored
+    }
+
     /**
      * A usable cached token, or a fresh one from an OIDC login the user completes in a browser.
      * Returns null after moving the attempt to Failed, or when the attempt was cancelled meanwhile.
      */
     private suspend fun obtainToken(a: Attempt, route: Route.Boundary): BoundaryToken? {
         val key = tokenKey(route)
-        synchronized(lock) { tokens[key]?.takeIf(::usable) }?.let { return it }
+        cachedToken(key)?.let { return it }
         val auth = boundaryAuth ?: run { fail(a, "Boundary login is not available"); return null }
 
         val token = try {
@@ -204,15 +225,18 @@ class SessionViewModel(
         }
 
         // The native Poll cannot be interrupted, so a result can arrive after the user cancelled.
-        return synchronized(lock) {
+        val accepted = synchronized(lock) {
             if (attempt === a && !a.finished) {
                 tokens[key] = token
                 _state.value = SessionState.Connecting(a.target)
-                token
+                true
             } else {
-                null
+                false
             }
         }
+        if (!accepted) return null
+        runCatching { tokenStore?.save(key, token) }
+        return token
     }
 
     /** Polls until the login completes; null on timeout. A few consecutive poll errors are tolerated. */

@@ -42,6 +42,7 @@ import run.scp.mobile.app.session.Route
 import run.scp.mobile.app.ui.AutoLoginScreen
 import run.scp.mobile.app.backup.readBounded
 import run.scp.mobile.app.secure.KeystoreSealer
+import run.scp.mobile.app.secure.SealedFileBoundaryTokenStore
 import run.scp.mobile.app.secure.SealedFileSecretStore
 import run.scp.mobile.app.servers.FileServerRepository
 import run.scp.mobile.app.servers.ServersViewModel
@@ -69,9 +70,13 @@ class MainActivity : ComponentActivity() {
         val identity = KeystoreDeviceIdentity(applicationContext)
         val knownHosts = FileKnownHostsStore(File(filesDir, "known_hosts"))
         val secretStore = SealedFileSecretStore(File(filesDir, "boundary_secrets.enc"), KeystoreSealer("scp-mobile-secrets-wrap"))
+        val tokenStore = SealedFileBoundaryTokenStore(File(filesDir, "boundary_tokens.enc"), KeystoreSealer("scp-mobile-tokens-wrap"))
         val sessionFactory = viewModelFactory {
             initializer {
-                SessionViewModel(OpenShellConnector(identity), knownHosts, boundaryAuth = NativeBoundaryAuthenticator())
+                SessionViewModel(
+                    OpenShellConnector(identity), knownHosts,
+                    boundaryAuth = NativeBoundaryAuthenticator(), tokenStore = tokenStore,
+                )
             }
         }
         val serversFactory = viewModelFactory {

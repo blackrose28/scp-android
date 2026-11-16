@@ -21,7 +21,19 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withTimeout
+import run.scp.mobile.app.secure.BoundaryTokenStore
 import run.scp.mobile.app.tofu.TrustedHost
+
+private class MemTokenStore : BoundaryTokenStore {
+    val tokens = java.util.concurrent.ConcurrentHashMap<String, BoundaryToken>()
+    @Volatile var failSaves = false
+    override fun load(key: String) = tokens[key]
+    override fun save(key: String, token: BoundaryToken) {
+        if (failSaves) throw java.io.IOException("disk full")
+        tokens[key] = token
+    }
+    override fun remove(key: String) { tokens.remove(key) }
+}
 
 /** Scripted login: each poll consumes the next step; the last step repeats. */
 private class FakeLogin(
@@ -65,10 +77,14 @@ class BoundarySessionViewModelTest {
         auth: BoundaryAuthenticator?,
         pollMs: Long = 5,
         timeoutMs: Long = 5_000,
+        tokenStore: BoundaryTokenStore? = null,
     ) = SessionViewModel(
         c, store, ioDispatcher = Dispatchers.IO, hostKeyTimeoutMs = 5_000,
         boundaryAuth = auth, loginPollIntervalMs = pollMs, loginTimeoutMs = timeoutMs, clock = { now },
+        tokenStore = tokenStore,
     )
+
+    private val key = "https://boundary.example\u0000amoidc_abc"
 
     private suspend fun <T> Flow<T>.await(p: (T) -> Boolean): T = withTimeout(5_000) { first(p) }
 
@@ -261,6 +277,89 @@ class BoundarySessionViewModelTest {
         vm.connect(target, 80, 24)
         vm.state.await { it is SessionState.Failed }
         assertEquals(2, auth.starts.get())
+    }
+
+    @Test fun `a fresh login is persisted`() = runBlocking<Unit> {
+        val ts = MemTokenStore()
+        val saved = BoundaryToken("t1", now + 3_600_000)
+        val vm = vm(FakeConnector(), FakeAuth({ FakeLogin(steps = listOf({ saved })) }), tokenStore = ts)
+        vm.connect(target, 80, 24)
+        vm.state.await { it is SessionState.Connected }
+        assertEquals(saved, ts.tokens[key])
+    }
+
+    @Test fun `a persisted token is used after a restart without a login`() = runBlocking<Unit> {
+        val ts = MemTokenStore().also { it.tokens[key] = BoundaryToken("persisted", now + 3_600_000) }
+        val c = FakeConnector()
+        val auth = FakeAuth({ error("must not log in") })
+        val vm = vm(c, auth, tokenStore = ts) // a new ViewModel, as after a process restart
+        vm.connect(target, 80, 24)
+        vm.state.await { it is SessionState.Connected }
+        assertEquals(0, auth.starts.get())
+        assertEquals("persisted", c.openedToken?.value)
+    }
+
+    @Test fun `an expired persisted token is discarded and a new login runs`() = runBlocking<Unit> {
+        val ts = MemTokenStore().also { it.tokens[key] = BoundaryToken("old", now + 30_000) } // inside the margin
+        val auth = FakeAuth({ FakeLogin(steps = listOf({ BoundaryToken("new", now + 3_600_000) })) })
+        val c = FakeConnector()
+        val vm = vm(c, auth, tokenStore = ts)
+        vm.connect(target, 80, 24)
+        vm.state.await { it is SessionState.Connected }
+        assertEquals(1, auth.starts.get())
+        assertEquals("new", c.openedToken?.value)
+        assertEquals("new", ts.tokens[key]?.value)
+    }
+
+    @Test fun `a persisted token for another controller is not used`() = runBlocking<Unit> {
+        val ts = MemTokenStore().also { it.tokens["https://other.example\u0000amoidc_abc"] = BoundaryToken("other", now + 3_600_000) }
+        val auth = FakeAuth({ FakeLogin(steps = listOf({ BoundaryToken("mine", now + 3_600_000) })) })
+        val c = FakeConnector()
+        val vm = vm(c, auth, tokenStore = ts)
+        vm.connect(target, 80, 24)
+        vm.state.await { it is SessionState.Connected }
+        assertEquals("mine", c.openedToken?.value)
+        assertEquals("other", ts.tokens["https://other.example\u0000amoidc_abc"]?.value)
+    }
+
+    @Test fun `a failed boundary connect also forgets the persisted token`() = runBlocking<Unit> {
+        val ts = MemTokenStore().also { it.tokens[key] = BoundaryToken("stale", now + 3_600_000) }
+        val vm = vm(FakeConnector(failWith = java.io.IOException("authorize session: 401")), FakeAuth({ error("unused") }), tokenStore = ts)
+        vm.connect(target, 80, 24)
+        vm.state.await { it is SessionState.Failed }
+        assertNull(ts.tokens[key])
+    }
+
+    @Test fun `a token store that cannot save does not block the connection`() = runBlocking<Unit> {
+        val ts = MemTokenStore().also { it.failSaves = true }
+        val c = FakeConnector()
+        val auth = FakeAuth({ FakeLogin(steps = listOf({ BoundaryToken("t1", now + 3_600_000) })) })
+        val vm = vm(c, auth, tokenStore = ts)
+        vm.connect(target, 80, 24)
+        vm.state.await { it is SessionState.Connected }
+        assertEquals("t1", c.openedToken?.value)
+        vm.disconnect()
+        vm.connect(target, 80, 24) // still reused from memory
+        vm.state.await { it is SessionState.Connected }
+        assertEquals(1, auth.starts.get())
+    }
+
+    @Test fun `a login that was cancelled is not persisted`() = runBlocking<Unit> {
+        val release = CountDownLatch(1)
+        val entered = CountDownLatch(1)
+        val login = FakeLogin(steps = listOf({
+            entered.countDown()
+            release.await(5, TimeUnit.SECONDS)
+            BoundaryToken("late", now + 3_600_000)
+        }))
+        val ts = MemTokenStore()
+        val vm = vm(FakeConnector(), FakeAuth({ login }), tokenStore = ts)
+        vm.connect(target, 80, 24)
+        assertTrue(entered.await(5, TimeUnit.SECONDS))
+        vm.disconnect()
+        release.countDown()
+        Thread.sleep(100)
+        assertTrue(ts.tokens.isEmpty())
     }
 
     @Test fun `release closes a live session even without the worker queue`() = runBlocking<Unit> {

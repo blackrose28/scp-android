@@ -173,9 +173,13 @@ as the host field.
   mixed content and file/content access are off, cookies are cleared on entry and exit; secrets are read from the
   sealed store on demand and live only in the composition. Not handled: login forms inside iframes, a different
   IdP host than the auth URL's, and TOTP clock-skew correction (the desktop's `fetch_time_offset`).
-- Token kept in memory (implemented) and Keystore-encrypted storage (not yet). It is passed to the
-  connector per connect and never stored in `SshTarget`/`SessionState`. A cached token is reused unless it is
-  within a minute of expiry; any failed Boundary connect drops it. Session status cards
+- Token kept in memory and in Keystore-sealed storage (`boundary_tokens.enc`, AES-GCM under its own
+  non-exportable key, one entry per controller + auth method; the keys are inside the encrypted payload), so a
+  restart does not force a new login. It is passed to the connector per connect and never stored in
+  `SshTarget`/`SessionState`. A cached token is reused unless it is within a minute of expiry (an expired stored
+  token is deleted); any failed Boundary connect drops it from memory and storage. An unreadable file (damaged, or
+  its Keystore key is gone) reads as no token, and a store that cannot write never blocks a connect (the token then
+  lives in memory only), so the worst case is one more login. Session status cards
   show `Expiration` and `ConnectionsLeft`, and the app re-authorizes before expiry (not yet implemented).
 
 ## Android platform notes

@@ -49,7 +49,8 @@ ABIs:
 - `servers/` – `ServersViewModel` (saved list + import flow: pick, decrypt, preview, apply, with a stale-result
   guard), `FileServerRepository` (app-private `servers.json`, atomic writes, no secrets) and `serverRows`.
 - `secure/` – `Sealer`/`KeystoreSealer` (AES-GCM under an Android Keystore key) and `SealedFileSecretStore`
-  (the imported OIDC password / OTP secret, never plaintext on disk).
+  (the imported OIDC password / OTP secret) and `SealedFileBoundaryTokenStore` (Boundary auth tokens), never
+  plaintext on disk.
 - `ui/` – Server list, Import, Connect (Direct / Boundary toggle), Login, Connecting, TOFU and Terminal screens (Compose).
   `PublicKeyCard` (server list and manual connect) shows the device's `ssh-ed25519` line with Copy and Share buttons
   for pasting into a server's `~/.ssh/authorized_keys`; they stay disabled until the key has loaded.
@@ -67,8 +68,9 @@ Servers imported from a backup carry their Boundary settings. The manual connect
 URL, OIDC auth method ID (`amoidc_…`) and target ID (`ttcp_…`) by hand, plus the server's real SSH host, port and user. Connecting runs
 `StartOidc`, opens the IdP URL in the system browser (plain `ACTION_VIEW`, http/https only), polls until the
 login finishes, then dials the target. The browser flow needs no deep link: the IdP calls back to the
-controller and the app only polls. Tokens are kept in memory only (not yet Keystore-persisted), reused while
-more than a minute from expiry, and dropped after any failed Boundary connect so the retry logs in again.
+controller and the app only polls. Tokens are cached in memory and in a Keystore-sealed file (`boundary_tokens.enc`, so they survive a
+restart), reused while more than a minute from expiry, and dropped (from both) after any failed Boundary
+connect so the retry logs in again.
 Login times out after 5 minutes.
 
 **Automated login** (`oidcLoginMode: automated` in the backup, like the desktop app): the IdP page loads in an
